@@ -1,48 +1,89 @@
 from microvision.imagePreprocessingPipline.grayScaleConverstion import PCAGrayscaleConverter
-from microvision.imagePreprocessingPipline.contrastEnhancement import CLAHEEnhancer
 from microvision.imagePreprocessingPipline.gaussianBlur import GaussianBlurEnhancer
-from microvision.imagePreprocessingPipline.imageThresholding import AdaptiveThreshold
 
-from microvision.contourEdgeDetection.cannyEdgeDetection import CannyEdgeDetector
+from microvision.contourEdgeDetection.morphology import MorphologyProcessor
+from microvision.contourEdgeDetection.cannyEdge import CannyEdgeDetector
+from microvision.contourEdgeDetection.contourDetection import ContourDetector
+
 import cv2
 import numpy as np
 from PIL import Image
+import pandas as pd
 
-# -------------------------
+
+# ---------------------------------------------
 # Step 1: PCA Grayscale
-# -------------------------
-converter = PCAGrayscaleConverter("D:/projects/Project MicroMorph AI/Images/TestImages/Navicula.jpg")
-grayscale_value = converter.convert_to_grayscale()
-print("After Grayscale convert : ", grayscale_value.shape, grayscale_value.dtype, 
-      grayscale_value.min(), grayscale_value.max())
+# ---------------------------------------------
+converter = PCAGrayscaleConverter(
+    "D:/projects/Project MicroMorph AI/Images/TestImages/Navicula.jpg"
+)
+gray = converter.convert_to_grayscale()
+print("Gray:", gray.shape)
 
-# -------------------------
-# Step 2: CLAHE Enhancement
-# -------------------------
-enhancer = CLAHEEnhancer(grayscale_mat=grayscale_value)
-enhanced_img = enhancer.convert_to_rgb()  # ensure 3-channel output
-print("After CLAHE enhancement : ", enhanced_img.shape, enhanced_img.dtype, 
-      enhanced_img.min(), enhanced_img.max())
 
-# Ensure dtype is uint8 for OpenCV
-enhanced_img_uint8 = np.clip(enhanced_img, 0, 255).astype(np.uint8)
-print("After CLAHE enhancement after uint8 : ", enhanced_img_uint8.shape, enhanced_img_uint8.dtype, 
-      enhanced_img_uint8.min(), enhanced_img_uint8.max())
+# ---------------------------------------------
+# Step 2: Gaussian Blur
+# ---------------------------------------------
+blur_proc = GaussianBlurEnhancer(image_array=gray.astype(np.uint8))
+blurred = blur_proc.apply_blur()
+print("Blur:", blurred.shape)
 
-# -------------------------
-# Step 3: Gaussian Blur + Noise
-# -------------------------
-blur_enhancer = GaussianBlurEnhancer(image_array=enhanced_img_uint8)
-blurred_img = blur_enhancer.apply_blur()
-print("After enhanced with Gaussian : ", blurred_img.shape, blurred_img.dtype, 
-      blurred_img.min(), blurred_img.max())
 
-thresholding = AdaptiveThreshold(blurred_img)
+# ---------------------------------------------
+# Step 3: Otsu Threshold (Stable)
+# ---------------------------------------------
+blur_gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
 
-# Adaptive mean threshold
-mean_binary = thresholding.mean_threshold(block_size=15, c=2)
-thresholding.show(mean_binary, title="Mean Adaptive Threshold")
+_, binary = cv2.threshold(
+    blur_gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+)
+print("Binary:", binary.shape)
 
-# Adaptive Gaussian threshold
-gaussian_binary = thresholding.gaussian_threshold(block_size=15, c=2)
-thresholding.show(gaussian_binary, title="Gaussian Adaptive Threshold")
+
+# ---------------------------------------------
+# Step 4: Morphology → clean mask
+# ---------------------------------------------
+morph = MorphologyProcessor(binary, kernel_size=3, kernel_shape="ellipse")
+clean_mask = morph.process(operations=["opening"])   # removes dust
+
+morph.show(clean_mask, "Clean Mask")
+
+
+# ---------------------------------------------
+# Step 5: Canny (Just for visualization – NOT for contour detection)
+# ---------------------------------------------
+canny = CannyEdgeDetector(clean_mask)
+edges = canny.detect_edges(50, 150)
+canny.show(edges, "Edges")
+
+
+# ---------------------------------------------
+# Step 6: Contours on CLEAN MASK (Not edges)
+# ---------------------------------------------
+detector = ContourDetector(edges, min_area=10000)
+
+detector.find_contours()
+props = detector.compute_properties()
+
+# for p in props:
+#     print(f"Area: {p['area']} | Centroid: {p['centroid']}")
+
+stable = detector.draw_big_contours(clean_mask)
+detector.show(stable, "Stable Contours")
+
+
+# ---------------------------------------------
+# Step 7: DataFrame Output
+# ---------------------------------------------
+filtered = detector.get_big_contours()
+
+df = pd.DataFrame([
+    {
+        "area": p["area"],
+        "perimeter": p["perimeter"],
+        "centroid": p["centroid"]
+    }
+    for p in filtered
+])
+
+print(df)
