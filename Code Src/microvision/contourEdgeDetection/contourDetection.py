@@ -41,40 +41,53 @@ class ContourDetector:
     def compute_properties(self):
         """Compute area, perimeter, centroid, approx — for all contours."""
         props = []
+
         for cnt in self.contours:
             area = cv2.contourArea(cnt)
             perimeter = cv2.arcLength(cnt, True)
 
-            if perimeter > 0:
-                circularity = (4 * np.pi * area) / (perimeter ** 2)
-            else:
-                circularity = 0
+            # ---- Circularity ----
+            circularity = (4 * np.pi * area) / (perimeter ** 2) if perimeter > 0 else 0
 
+            # ---- Fit ellipse for major/minor axis + eccentricity ----
             if len(cnt) >= 5:
                 ellipse = cv2.fitEllipse(cnt)
                 (x_c, y_c), (major_axis, minor_axis), angle = ellipse
 
                 a = max(major_axis, minor_axis) / 2
                 b = min(major_axis, minor_axis) / 2
-
-                if a > 0:
-                    eccentricity = np.sqrt(1 - (b * b) / (a * a))
-                else:
-                    eccentricity = 0
+                eccentricity = np.sqrt(1 - (b * b) / (a * a)) if a > 0 else 0
             else:
-                major_axis = 0
-                minor_axis = 0
-                eccentricity = 0
+                major_axis = minor_axis = eccentricity = 0
 
+            # ---- Hu moments (log scale) ----
             hu = cv2.HuMoments(cv2.moments(cnt)).flatten()
-            hu1 = hu[0]  
+            hu_log = -np.sign(hu) * np.log10(np.abs(hu) + 1e-12)
 
+            # ---- Centroid ----
             M = cv2.moments(cnt)
             cx = int(M["m10"] / M["m00"]) if M["m00"] != 0 else -1
             cy = int(M["m01"] / M["m00"]) if M["m00"] != 0 else -1
 
+            # ---- Polygon approximation ----
             epsilon = 0.01 * perimeter
             approx = cv2.approxPolyDP(cnt, epsilon, True)
+
+            # ---- Aspect Ratio ----
+            x, y, w, h = cv2.boundingRect(cnt)
+            aspect_ratio = w / h if h > 0 else 0
+
+            # ---- Solidity (area/convex hull area) ----
+            hull = cv2.convexHull(cnt)
+            hull_area = cv2.contourArea(hull)
+            solidity = area / hull_area if hull_area > 0 else 0
+
+            # ---- Extent (area / bounding box area) ----
+            bbox_area = w * h
+            extent = area / bbox_area if bbox_area > 0 else 0
+
+            # ---- Compactness (perimeter² / area) ----
+            compactness = (perimeter ** 2) / area if area > 0 else 0
 
             props.append({
                 "contour": cnt,
@@ -86,7 +99,11 @@ class ContourDetector:
                 "eccentricity": eccentricity,
                 "major_axis": major_axis,
                 "minor_axis": minor_axis,
-                "hu1": hu1
+                "hu_log": hu_log,
+                "aspect_ratio": aspect_ratio,
+                "solidity": solidity,
+                "extent": extent,
+                "compactness": compactness
             })
 
         return props
@@ -112,34 +129,15 @@ class ContourDetector:
 
             cv2.drawContours(img_out, [cnt], -1, (0, 255, 0), 2)
 
-            if perimeter > 0:
-                circularity = (4 * np.pi * area) / (perimeter ** 2)
-            else:
-                circularity = 0
-
-            if len(cnt) >= 5:
-                ellipse = cv2.fitEllipse(cnt)
-                (x_c, y_c), (major_axis, minor_axis), angle = ellipse
-
-                # eccentricity = sqrt(1 - (b^2 / a^2))
-                a = max(major_axis, minor_axis) / 2
-                b = min(major_axis, minor_axis) / 2
-                if a > 0:
-                    eccentricity = np.sqrt(1 - (b * b) / (a * a))
-                else:
-                    eccentricity = 0
-            else:
-                major_axis = minor_axis = eccentricity = 0
-
-            hu = cv2.HuMoments(cv2.moments(cnt)).flatten()
-            hu1 = hu[0]  
-
             lines = [
                 f"A:{int(area)} P:{int(perimeter)}",
-                f"Circ:{circularity:.2f}",
-                f"Ecc:{eccentricity:.2f}",
-                f"Maj:{major_axis:.1f} Min:{minor_axis:.1f}",
-                f"Hu1:{hu1:.3e}"
+                f"Circ:{p['circularity']:.2f}",
+                f"Ecc:{p['eccentricity']:.2f}",
+                f"AR:{p['aspect_ratio']:.2f}",
+                f"Sol:{p['solidity']:.2f}",
+                f"Ext:{p['extent']:.2f}",
+                f"Comp:{p['compactness']:.2f}",
+                f"Hu1(log):{p['hu_log'][0]:.1f}"
             ]
 
             y_offset = 0
@@ -147,7 +145,7 @@ class ContourDetector:
                 cv2.putText(
                     img_out,
                     line,
-                    (cx - 60, cy + y_offset),
+                    (cx - 70, cy + y_offset),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.45,
                     (0, 0, 255),

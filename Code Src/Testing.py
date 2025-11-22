@@ -14,7 +14,7 @@ from pandasgui import show
 # Step 1: PCA Grayscale
 # ---------------------------------------------------
 converter = PCAGrayscaleConverter(
-    "D:/projects/Project MicroMorph AI/Images/TestImages/test6.jpeg"
+    "D:/projects/Project MicroMorph AI/Images/TestImages/test8.png"
 )
 gray = converter.convert_to_grayscale()
 
@@ -27,7 +27,7 @@ blurred = blur_proc.apply_blur()
 
 
 # ---------------------------------------------------
-# Step 3: Adaptive Threshold (More stable than Otsu)
+# Step 3: Adaptive Threshold
 # ---------------------------------------------------
 blur_gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
 
@@ -36,21 +36,20 @@ binary = cv2.adaptiveThreshold(
     255,
     cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
     cv2.THRESH_BINARY_INV,
-    31,  # block size
+    31,
     2
 )
 
 
 # ---------------------------------------------------
-# Step 4: Morphology (closing + opening)
+# Step 4: Morphology
 # ---------------------------------------------------
 morph = MorphologyProcessor(binary, kernel_size=5, kernel_shape="ellipse")
-
 clean_mask = morph.process(operations=["closing", "opening"])
 
 
 # ---------------------------------------------------
-# Step 5: Remove image border to prevent false contour
+# Step 5: Remove border noise
 # ---------------------------------------------------
 clean_mask[0:10, :] = 0
 clean_mask[-10:, :] = 0
@@ -59,15 +58,15 @@ clean_mask[:, -10:] = 0
 
 
 # ---------------------------------------------------
-# Step 6: Contours on CLEAN MASK (not Canny)
+# Step 6: Contour Detection
 # ---------------------------------------------------
 detector = ContourDetector(clean_mask, min_area=10000)
 
 detector.find_contours()
 props = detector.compute_properties()
 
-stable = detector.draw_big_contours(clean_mask)
-detector.show(stable, "Organism Contours")
+overlay = detector.draw_big_contours(clean_mask)
+detector.show(overlay, "Organism Contours")
 
 
 # ---------------------------------------------------
@@ -84,7 +83,17 @@ df = pd.DataFrame([
         "eccentricity": p["eccentricity"],
         "major_axis": p["major_axis"],
         "minor_axis": p["minor_axis"],
-        "hu1": p["hu1"]
+        "aspect_ratio": p["aspect_ratio"],
+        "solidity": p["solidity"],
+        "extent": p["extent"],
+        "compactness": p["compactness"],
+        "hu1_log": p["hu_log"][0],
+        "hu2_log": p["hu_log"][1],
+        "hu3_log": p["hu_log"][2],
+        "hu4_log": p["hu_log"][3],
+        "hu5_log": p["hu_log"][4],
+        "hu6_log": p["hu_log"][5],
+        "hu7_log": p["hu_log"][6],
     }
     for p in filtered
 ])
