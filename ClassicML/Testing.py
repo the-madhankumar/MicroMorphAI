@@ -1,8 +1,9 @@
+from microvision.imagePreprocessingPipline.contrastEnhancement import CLAHEEnhancer
 from microvision.imagePreprocessingPipline.grayScaleConverstion import PCAGrayscaleConverter
 from microvision.imagePreprocessingPipline.gaussianBlur import GaussianBlurEnhancer
-
 from microvision.contourEdgeDetection.morphology import MorphologyProcessor
 from microvision.contourEdgeDetection.contourDetection import ContourDetector
+
 
 import cv2
 import numpy as np
@@ -14,38 +15,34 @@ from pandasgui import show
 # Step 1: PCA Grayscale
 # ---------------------------------------------------
 converter = PCAGrayscaleConverter(
-    "D:/projects/Project MicroMorph AI/Images/TestImages/test8.png"
+    "D:/projects/MicroMorph AI/Project MicroMorph AI/UnSeenVision/SpeciesSAM-2/train/Cerataulina_41_png.rf.be8e4f525adc1008643d2904512cc89c.jpg"
 )
-gray = converter.convert_to_grayscale()
+gray = converter.convert_to_grayscale()  # shape: (H,W)
 
 
 # ---------------------------------------------------
-# Step 2: Gaussian Blur
+# Step 2: CLAHE Enhancement (NEW)
 # ---------------------------------------------------
-blur_proc = GaussianBlurEnhancer(image_array=gray.astype(np.uint8))
+clahe = CLAHEEnhancer(grayscale_mat=gray)
+enhanced_rgb = clahe.convert_to_rgb()
+enhanced_gray = cv2.cvtColor(enhanced_rgb, cv2.COLOR_RGB2GRAY)
+
+
+# ---------------------------------------------------
+# Step 3: Smooth image
+# ---------------------------------------------------
+blur_proc = GaussianBlurEnhancer(image_array=enhanced_rgb.astype(np.uint8))
 blurred = blur_proc.apply_blur()
-
-
-# ---------------------------------------------------
-# Step 3: Adaptive Threshold
-# ---------------------------------------------------
 blur_gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
 
-binary = cv2.adaptiveThreshold(
-    blur_gray,
-    255,
-    cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-    cv2.THRESH_BINARY_INV,
-    31,
-    2
-)
-
 
 # ---------------------------------------------------
-# Step 4: Morphology
+# Step 4: Edge-based Mask (Better than adaptive threshold)
 # ---------------------------------------------------
-morph = MorphologyProcessor(binary, kernel_size=5, kernel_shape="ellipse")
-clean_mask = morph.process(operations=["closing", "opening"])
+edges = cv2.Canny(blur_gray, 15, 45)
+
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5))
+clean_mask = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel, iterations=2)
 
 
 # ---------------------------------------------------
@@ -60,13 +57,13 @@ clean_mask[:, -10:] = 0
 # ---------------------------------------------------
 # Step 6: Contour Detection
 # ---------------------------------------------------
-detector = ContourDetector(clean_mask, min_area=10000)
+detector = ContourDetector(clean_mask, min_area=2000)
 
 detector.find_contours()
 props = detector.compute_properties()
 
 overlay = detector.draw_big_contours(clean_mask)
-detector.show(overlay, "Organism Contours")
+detector.show(base_image=overlay)
 
 
 # ---------------------------------------------------
