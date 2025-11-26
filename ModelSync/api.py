@@ -3,7 +3,7 @@ from fastapi import FastAPI
 app = FastAPI()
 
 RANDOM_FOREST = ""
-EMBEDDINGS_COLLECTION = "edhana edit"
+EMBEDDINGS_COLLECTION = ""
 YOLO = ""
 MASK_R_CNN = ""
 SAM = ""
