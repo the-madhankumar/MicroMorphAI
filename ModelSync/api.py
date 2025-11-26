@@ -8,7 +8,6 @@ YOLO = ""
 MASK_R_CNN = ""
 SAM = ""
 
-
 @app.get("/dhatchayani")
 async def root():
     return {"message": "Hello World"}
