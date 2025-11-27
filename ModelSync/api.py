@@ -61,7 +61,7 @@ def img_to_base64(img):
     pil_img.save(buffer, format="PNG")
     return base64.b64encode(buffer.getvalue()).decode()
 
-@app.get("/dhatchayani")
+@app.get("/root")
 async def root():
     return {"message": "Hello World"}
 
