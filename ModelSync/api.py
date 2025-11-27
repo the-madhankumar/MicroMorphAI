@@ -9,6 +9,7 @@ from torchvision import transforms, models
 from pydantic import BaseModel
 from typing import List
 import chromadb
+from ultralytics import YOLO
 
 from uvision.embeddings import ImageEmbeddingEngine
 
@@ -27,6 +28,8 @@ app = FastAPI()
 # ===========================================================
 MASK_R_CNN_PATH = r"D:/projects/MicroMorph AI/Models/model_epoch_10.pth"
 NUM_CLASSES = 12
+
+YOLO_MODEL = "yolo11n.pt"
 
 # SAM_CHECKPOINT = r"D:/projects/MicroMorph AI/SAM/checkpoints/checkpoint.pt"
 # SAM_CONFIG = r"D:/projects/MicroMorph AI/SAM/configs/sam2.1/sam2.1_hiera_b+.yaml"
@@ -220,7 +223,6 @@ async def random_forest(data: Random):
     return {"received_value": data.values}
 
 
-
 # -----------------------------------------------------------
 # IMAGE EMBEDDING SEARCH
 # -----------------------------------------------------------
@@ -236,13 +238,36 @@ async def embed_similarity(data: EmbeddingModel):
 
     return response
 
+@app.post("/yolo_predict")
+async def yoloPrediction():
 
+    model = YOLO(YOLO_MODEL)
+
+    results = model.predict(
+        "https://ultralytics.com/images/bus.jpg",
+        imgsz=320,
+        conf=0.5
+    )
+
+    detections = []
+
+    for r in results:
+        for b in r.boxes:   
+            detections.append({
+                "confidence": float(b.conf[0]),
+                "class_id": int(b.cls[0]),
+                "class_name": model.names[int(b.cls[0])]
+            })
+        r.show()
+
+    return detections
 
 # -----------------------------------------------------------
 # SAM 2.1 PREDICTION ROUTE
 # -----------------------------------------------------------
-# @app.post("/sam_predict")
-# async def sam_predict(image_path: ImagePathModel):
+@app.post("/sam_predict")
+async def sam_predict():
+    return "[INFO] Work in progress ..."
 
 #     image_bgr = cv2.imread(image_path.Image_Path)
 #     if image_bgr is None:
