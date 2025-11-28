@@ -1,24 +1,28 @@
 import cv2
 import numpy as np
+import scipy
+import mahotas
 
 
 class ContourDetector:
     """
-    Detect and compute contour geometry.
-    This version ONLY shows and returns large contours (noise removed).
+    Detect and compute contour geometry + 131 micro-image descriptors.
     """
 
     def __init__(self, image: np.ndarray, min_area=200):
         self.min_area = min_area
 
-        if len(image.shape) == 3:
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # ensure BGR format
+        if len(image.shape) == 2:
+            self.orig_img = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        else:
+            self.orig_img = image.copy()
 
-        self.img = image.copy()
+        self.img = cv2.cvtColor(self.orig_img, cv2.COLOR_BGR2GRAY)
         self._ensure_binary()
 
     def _ensure_binary(self):
-        """Convert image to binary using Otsu only if not already binary."""
+        """Convert grayscale -> binary using Otsu only when required."""
         unique_vals = np.unique(self.img)
 
         if set(unique_vals).issubset({0, 255}):
@@ -30,7 +34,6 @@ class ContourDetector:
         self.img = th
 
     def find_contours(self):
-        """Find all contours."""
         contours, hierarchy = cv2.findContours(
             self.img.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
@@ -39,126 +42,201 @@ class ContourDetector:
         return contours
 
     def compute_properties(self):
-        """Compute area, perimeter, centroid, approx — for all contours."""
         props = []
 
         for cnt in self.contours:
+
+            # ---------------- AREA ----------------
             area = cv2.contourArea(cnt)
+            M = cv2.moments(cnt)
+            area_moment = M["m00"]
+
+            # ---------------- CENTROID -------------
+            M = cv2.moments(cnt)
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+            else:
+                cx, cy = 0, 0  
+            # ---------------- PERIMETER ----------------
             perimeter = cv2.arcLength(cnt, True)
 
-            # ---- Circularity ----
+            # ---------------- CIRCULARITY ----------------
             circularity = (4 * np.pi * area) / (perimeter ** 2) if perimeter > 0 else 0
 
-            # ---- Fit ellipse for major/minor axis + eccentricity ----
+            # ---------------- ELLIPSE FIT ----------------
             if len(cnt) >= 5:
                 ellipse = cv2.fitEllipse(cnt)
-                (x_c, y_c), (major_axis, minor_axis), angle = ellipse
+                (xc, yc), (MA, ma), angle = ellipse
+                major_axis = max(MA, ma)
+                minor_axis = min(MA, ma)
+                a, b = major_axis / 2, minor_axis / 2
 
-                a = max(major_axis, minor_axis) / 2
-                b = min(major_axis, minor_axis) / 2
-                eccentricity = np.sqrt(1 - (b * b) / (a * a)) if a > 0 else 0
+                eccentricity = np.sqrt(1 - (b*b)/(a*a)) if a > 0 else 0
+                roundness = minor_axis / major_axis if major_axis > 0 else 0
             else:
-                major_axis = minor_axis = eccentricity = 0
+                major_axis = minor_axis = eccentricity = roundness = 0
 
-            # ---- Hu moments (log scale) ----
-            hu = cv2.HuMoments(cv2.moments(cnt)).flatten()
-            hu_log = -np.sign(hu) * np.log10(np.abs(hu) + 1e-12)
+            # ---------------- EQUIVALENT DIAMETER ----------------
+            equivalent_diameter = np.sqrt(4 * area / np.pi) if area > 0 else 0
 
-            # ---- Centroid ----
-            M = cv2.moments(cnt)
-            cx = int(M["m10"] / M["m00"]) if M["m00"] != 0 else -1
-            cy = int(M["m01"] / M["m00"]) if M["m00"] != 0 else -1
-
-            # ---- Polygon approximation ----
-            epsilon = 0.01 * perimeter
-            approx = cv2.approxPolyDP(cnt, epsilon, True)
-
-            # ---- Aspect Ratio ----
+            # ---------------- BOUNDING BOX ----------------
             x, y, w, h = cv2.boundingRect(cnt)
-            aspect_ratio = w / h if h > 0 else 0
+            rectangularity = area / (w*h) if w*h > 0 else 0
+            shape_factor = (perimeter * perimeter) / area if area > 0 else 0
+            width_bb, height_bb = w, h
 
-            # ---- Solidity (area/convex hull area) ----
+            # ---------------- CONVEXITY & SOLIDITY ----------------
             hull = cv2.convexHull(cnt)
             hull_area = cv2.contourArea(hull)
+            convexity = cv2.arcLength(hull, True) / perimeter if perimeter > 0 else 0
             solidity = area / hull_area if hull_area > 0 else 0
+            extent = area / (w*h) if w*h > 0 else 0
 
-            # ---- Extent (area / bounding box area) ----
-            bbox_area = w * h
-            extent = area / bbox_area if bbox_area > 0 else 0
+            # ---------------- HU MOMENTS ----------------
+            hu = cv2.HuMoments(M).flatten()
+            hu_log = -np.sign(hu) * np.log10(np.abs(hu) + 1e-12)
 
-            # ---- Compactness (perimeter² / area) ----
-            compactness = (perimeter ** 2) / area if area > 0 else 0
+            # ---------------- ZERNIKE MOMENTS ----------------
+            mask = np.zeros(self.img.shape, dtype=np.uint8)
+            cv2.drawContours(mask, [cnt], -1, 255, -1)
 
-            props.append({
-                "contour": cnt,
+            radius = min(mask.shape) // 2
+            zernike = mahotas.features.zernike_moments(mask, radius)
+
+            # ---------------- COLOR FEATURES ----------------
+            img_bgr = self.orig_img.copy()
+            b, g, r = cv2.split(img_bgr)
+            eps = 1e-12
+
+            ratio_rg = np.mean(r) / (np.mean(g) + eps)
+            ratio_rb = np.mean(r) / (np.mean(b) + eps)
+            ratio_bg = np.mean(b) / (np.mean(g) + eps)
+
+            gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+            gray_mean = np.mean(gray)
+            gray_std = np.std(gray)
+            gray_skew = scipy.stats.skew(gray.reshape(-1))
+            gray_kurt = scipy.stats.kurtosis(gray.reshape(-1))
+
+            hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
+            hist_norm = hist / (hist.sum() + eps)
+            entropy = -np.sum(hist_norm * np.log2(hist_norm + eps))
+
+            # ---------------- HARALICK FEATURES ----------------
+            gray_har = gray.astype(np.uint8)
+            haralick_full = mahotas.features.haralick(gray_har, return_mean=False)
+            har = haralick_full.mean(axis=0)
+
+            # ---------------- LBP (54 FEATURES) ----------------
+            from skimage.feature import local_binary_pattern
+            P, R = 8, 1
+            lbp = local_binary_pattern(gray, P, R, method="uniform")
+
+            hist_lbp, _ = np.histogram(lbp.ravel(), bins=59, range=(0, 59))
+            hist_lbp = hist_lbp.astype(float) / (hist_lbp.sum() + eps)
+            lbp_54 = hist_lbp[:54]
+
+            # ---------------- FOURIER DESCRIPTORS (10) ----------------
+            cnt_np = cnt.squeeze()
+            if len(cnt_np.shape) == 2 and cnt_np.shape[0] > 20:
+                complex_cnt = cnt_np[:, 0] + 1j * cnt_np[:, 1]
+                fd = np.fft.fft(complex_cnt)
+                fd_mag = np.abs(fd)
+                fourier_10 = fd_mag[1:11] / (fd_mag[1] + eps)
+            else:
+                fourier_10 = np.zeros(10)
+
+            # ---------------- ASSEMBLE FEATURE DICT ----------------
+            feature = {
+                # Geometric (17)
                 "area": area,
+                "area_moment": area_moment,
                 "perimeter": perimeter,
-                "centroid": (cx, cy),
-                "approx": approx,
                 "circularity": circularity,
-                "eccentricity": eccentricity,
                 "major_axis": major_axis,
                 "minor_axis": minor_axis,
-                "hu_log": hu_log,
-                "aspect_ratio": aspect_ratio,
+                "eccentricity": eccentricity,
+                "equivalent_diameter": equivalent_diameter,
+                "width_bb": width_bb,
+                "height_bb": height_bb,
+                "rectangularity": rectangularity,
+                "roundness": roundness,
+                "shape_factor": shape_factor,
+                "convexity": convexity,
                 "solidity": solidity,
                 "extent": extent,
-                "compactness": compactness
-            })
+                "centroid": (cx, cy),
+
+                # Hu (7)
+                **{f"hu_{i+1}": hu_log[i] for i in range(7)},
+
+                # Zernike (25)
+                **{f"z_{i}": zernike[i] for i in range(25)},
+
+                # Color/Gray (8)
+                "ratio_rg": ratio_rg,
+                "ratio_rb": ratio_rb,
+                "ratio_bg": ratio_bg,
+                "gray_mean": gray_mean,
+                "gray_std": gray_std,
+                "gray_skew": gray_skew,
+                "gray_kurt": gray_kurt,
+                "gray_entropy": entropy,
+
+                # Haralick (13)
+                **{f"h_{i}": har[i] for i in range(13)},
+
+                # LBP (54)
+                **{f"lbp_{i}": lbp_54[i] for i in range(54)},
+
+                # Fourier (10)
+                **{f"fourier_{i}": fourier_10[i] for i in range(10)},
+
+                "contour": cnt
+            }
+
+            props.append(feature)
 
         return props
 
     def get_big_contours(self):
-        """Return contours above min_area only."""
-        props = self.compute_properties()
-        return [p for p in props if p["area"] >= self.min_area]
+        return [p for p in self.compute_properties() if p["area"] >= self.min_area]
 
     def draw_big_contours(self, base_image):
-        """Draw only large contours on the image."""
+        """Draw only large contours on the image with labels."""
         if len(base_image.shape) == 2:
             base_image = cv2.cvtColor(base_image, cv2.COLOR_GRAY2BGR)
 
-        big = self.get_big_contours()
         img_out = base_image.copy()
+        filtered = self.get_big_contours()
 
-        for p in big:
+        for p in filtered:
             cnt = p["contour"]
-            area = p["area"]
-            perimeter = p["perimeter"]
             cx, cy = p["centroid"]
 
             cv2.drawContours(img_out, [cnt], -1, (0, 255, 0), 2)
 
-            lines = [
-                f"A:{int(area)} P:{int(perimeter)}",
+            txt = [
+                f"Area:{p['area']:.0f}",
                 f"Circ:{p['circularity']:.2f}",
                 f"Ecc:{p['eccentricity']:.2f}",
-                f"AR:{p['aspect_ratio']:.2f}",
                 f"Sol:{p['solidity']:.2f}",
-                f"Ext:{p['extent']:.2f}",
-                f"Comp:{p['compactness']:.2f}",
-                f"Hu1(log):{p['hu_log'][0]:.1f}"
             ]
 
-            y_offset = 0
-            for line in lines:
+            ypos = 0
+            for t in txt:
                 cv2.putText(
-                    img_out,
-                    line,
-                    (cx - 70, cy + y_offset),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.45,
-                    (0, 0, 255),
-                    1,
-                    cv2.LINE_AA
+                    img_out, t, (cx, cy + ypos),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.45,
+                    (0, 0, 255), 1, cv2.LINE_AA
                 )
-                y_offset += 15
+                ypos += 15
 
         return img_out
 
-    def show(self, base_image, title="Large Contours Only"):
-        """Show only large contours."""
+    def show(self, base_image):
         img = self.draw_big_contours(base_image)
-        cv2.imshow(title, img)
+        cv2.imshow("131 Feature Contours", img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()

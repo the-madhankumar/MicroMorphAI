@@ -1,0 +1,29 @@
+.dataCard-container {
+    width: 100%;
+    padding: 25px;
+    border-radius: 18px;
+    background: #002B4A;
+    border: 1px solid #0A9396;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    transition: 0.35s ease;
+}
+
+.dataCard-container:hover {
+    transform: translateY(-10px) scale(1.03);
+    border-color: #94D82D;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
+    background: linear-gradient(135deg, #002B4A, #003455);
+}
+
+.title {
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: #0A9396;
+}
+
+.description {
+    font-size: 18px;
+    line-height: 1.6;
+    color: #CED4DA;
+}
