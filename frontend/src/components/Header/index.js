@@ -1,6 +1,5 @@
 import { Component } from "react";
 import { Link } from "react-router-dom";
-import logo from "../../Images/logofirst.png";
 import './index.css'
 
 class Header extends Component {
@@ -9,7 +8,7 @@ class Header extends Component {
             <div className="nav-header">
                 <div>
                     <Link to='/'>
-                        <img src={logo} alt="logo" />
+                        <img src="/Images/logofirst.png" alt="logo" />
                     </Link>
                 </div>
 

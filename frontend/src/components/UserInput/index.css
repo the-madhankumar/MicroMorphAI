@@ -1,0 +1,193 @@
+.UserInput-container {
+    max-width: 1200px;
+    width: 100%;
+    margin: 40px auto;
+    padding: 25px;
+}
+
+.form-container {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    background: #0a94963a;
+    padding: 30px;
+    border-radius: 18px;
+    box-shadow: 0px 4px 20px rgba(0,0,0,0.08);
+}
+
+.input-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 25px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.input-group.full-width {
+    flex: 100%;
+}
+
+label {
+    font-size: 16px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+input, select {
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    outline: none;
+    font-size: 15px;
+    transition: 0.2s ease-in-out;
+}
+
+.upload {
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  background: aliceblue;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  height: 350px;
+  cursor: pointer;
+}
+
+.upload svg {
+  width: 60px;
+  height: 60px;
+  color: #0A9396;
+}
+
+.upload-input {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.uploaded-preview {
+  margin-top: 15px;
+  width: 100%;
+  height: 500px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #aaa;
+}
+
+.live-box {
+  height: 500px;
+  position: relative;
+}
+
+.captured-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #aaa;
+}
+
+.webcam-view {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.capture-btn {
+  position: absolute;
+  bottom: 15px;
+  right: 15px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  background: #0A9396;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.capture-btn:hover {
+  opacity: 1;
+}
+
+input:focus,
+select:focus {
+    border-color: #0077ff;
+    box-shadow: 0px 0px 6px rgba(0, 119, 255, 0.3);
+}
+
+input::placeholder {
+    color: #8b8b8b;
+}
+
+.cus-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #0A9396;
+    color: white;
+    padding: 12px 15px;
+    border: none;
+    border-radius: 999px;
+    font-size: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s ease;
+    width: 500px;
+
+    box-shadow:
+        0 0 0 5px #002B4A,
+        0 0 0 6px #0a94967f;
+}
+
+.custom-next-button {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 30px;
+    background-color: #0A9396;
+    color: white;
+    margin: 20px 400px;
+    padding: 12px 15px;
+    border: none;
+    border-radius: 999px;
+    font-size: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 1s ease-in-out;
+
+    box-shadow:
+        0 0 0 5px #002B4A,
+        0 0 0 6px #0a94967f,
+        0 0 0 11px #002B4A,
+        0 0 0 12px #0a94967f,
+        0 0 0 17px #002B4A,
+        0 0 0 18px #0a94967f;
+}
+
+.custom-next-button:hover {
+    transition: 1s ease-in-out;
+    box-shadow:
+        0 0 0 5px #002B4A,
+        0 0 0 6px #0a94967f,
+        0 0 0 11px #002B4A,
+        0 0 0 12px #0a94967f,
+        0 0 0 17px #002B4A,
+        0 0 0 18px #0a94967f,
+        0 0 0 23px #002B4A,
+        0 0 0 24px #0a94967f,
+        0 0 0 29px #002B4A,
+        0 0 0 30px #0a94967f;
+}

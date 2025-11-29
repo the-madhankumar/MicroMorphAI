@@ -2,14 +2,14 @@
     width: 100%;
     max-width: 1200px;
     height: 60px;
-    background: #0a949600;
+    background: #0a94963a;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: 20px auto;
+    margin: 10px auto;
     border-bottom: 2px solid #0A9396;
-    border-radius: 12px;
-    padding: 30px 20px;
+    border-radius: 999px;
+    padding: 20px 10px;
 }
 
 .nav-header img {

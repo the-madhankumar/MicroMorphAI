@@ -1,0 +1,144 @@
+.showimages-container {
+    display: flex;
+    flex-direction: column;
+    max-width: 1400px;
+    width: 100%;
+    margin: 40px auto;
+    padding: 25px;
+    justify-content: center;
+}
+
+.showimages-main-image-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    margin-bottom: 50px;
+}
+
+.show-main-image {
+    width: 500px;
+    height: 500px;
+    border-radius: 12px;
+    border: 8px solid #0A9396;
+}
+
+.classification-stats {
+    width: 500px;
+    background-color: #0A9396;
+    padding: 20px;
+    border-radius: 12px;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.main-image-specs {
+    margin-top: 20px;
+}
+
+.carousel-wrapper {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto 40px;
+}
+
+.carousel-complete-view {
+    display: flex;
+    flex-direction: row;
+    gap: 80px;
+}
+
+.carousel-image {
+    width: 100%;
+    max-width: 500px;
+    height: 500px;
+    border-radius: 5%;
+    border: 10px solid #0A9396;
+    transition: all 0.3s ease;
+}
+
+.carousel-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.4);
+    border: none;
+    border-radius: 50%;
+    padding: 10px;
+    cursor: pointer;
+    color: white;
+    z-index: 10;
+}
+
+.carousel-arrow.left {
+    left: 10px;
+}
+
+.carousel-arrow.right {
+    right: 10px;
+}
+
+.carousel-arrow:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.current-image-classification {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-top: 10px;
+    margin-right: 200px;
+    padding: 0px 20px;
+    border-radius: 12px;
+}
+
+.current-image-classification h1 {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.image-spec-details {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    font-size: 20px;
+}
+
+.image-class {
+    font-weight: 600;
+}
+
+.image-spec {
+    font-style: italic;
+}
+
+.image-confidence {
+    font-weight: 500;
+}
+
+
+@media (max-width: 900px) {
+    .showimages-main-image-container {
+        flex-direction: column;
+        gap: 40px;
+    }
+
+    .show-main-image,
+    .carousel-image {
+        width: 100%;
+        max-width: 380px;
+        height: auto;
+    }
+
+    .classification-stats {
+        width: 100%;
+        max-width: 450px;
+    }
+}

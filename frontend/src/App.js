@@ -8,6 +8,7 @@ import {
 import Header from "./components/Header";
 import Home from './components/Home';
 import UserInput from "./components/UserInput";
+import ShowImages from './components/ShowImages';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route exact path="/about" element={<Home />} />
         <Route exact path="/detect" element={<Home />} />
         <Route exact path="/userinput" element={<UserInput/>}/>
+        <Route exact path="/showimages" element={<ShowImages/>}/>
       </Routes>
     </Router>
   );
