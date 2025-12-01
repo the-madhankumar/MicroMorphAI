@@ -1,7 +1,7 @@
 .showimages-container {
     display: flex;
     flex-direction: column;
-    max-width: 1400px;
+    max-width: 1200px;
     width: 100%;
     margin: 40px auto;
     padding: 25px;
@@ -123,6 +123,90 @@
     font-weight: 500;
 }
 
+.stats-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.section-2 {
+    max-width: 1200px;
+    align-items: center;
+}
+.water-analysis {
+    background: linear-gradient(135deg, #0a9396, #94d2bd);
+    padding: 25px 35px;
+    margin: 20px auto;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 800px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    font-family: 'Arial', sans-serif;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+}
+
+.water-metric {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 12px 20px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 20px;
+    font-weight: 600;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.water-metric:hover {
+    transform: translateY(-2px);
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.water-header-graph {
+    margin-top: 25px;
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    color: #e0fbfc;
+}
+
+
+.select-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #0A9396;
+    color: white;
+    padding: 12px 25px;
+    border-radius: 999px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    user-select: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.select-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+}
+
+.select-box.active {
+    background-color: #94D2BD;
+    color: #023047;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.selectAnalysis {
+    display: flex;
+    gap: 20px;
+    padding: 20px 30px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
 
 @media (max-width: 900px) {
     .showimages-main-image-container {
