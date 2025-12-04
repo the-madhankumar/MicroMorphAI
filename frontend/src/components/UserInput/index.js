@@ -1,16 +1,17 @@
 import { Component } from "react";
 import { MonitorUp } from "lucide-react";
 import { CustomWebcam } from "./CustomWebcam";
-import { StepForward } from 'lucide-react';
-import { withRouter } from '../../withRouter';
-
+import { StepForward } from "lucide-react";
+import { withRouter } from "../../withRouter";
+import { SpinnerCircular } from "spinners-react";
 import "./index.css";
 
 class UserInput extends Component {
     state = {
         live: true,
         upload: false,
-        imgSrc: null
+        imgSrc: null,
+        loading: false
     };
 
     handleCapture = (img) => {
@@ -26,9 +27,46 @@ class UserInput extends Component {
         }
     };
 
-    handleNextButton = () => {
-        this.props.navigate('/showimages');
-    }
+    handleNextButton = async () => {
+        const { imgSrc } = this.state;
+
+        if (!imgSrc) {
+            alert("Please capture or upload an image first.");
+            return;
+        }
+
+        try {
+            this.setState({ loading: true });
+            const formData = new FormData();
+
+            const fileInput = document.querySelector(".upload-input");
+            if (fileInput && fileInput.files[0]) {
+                formData.append("file", fileInput.files[0]);
+            } else {
+                const blob = await fetch(imgSrc).then(r => r.blob());
+                formData.append("file", blob, "capture.jpg");
+            }
+
+            const response = await fetch("http://localhost:8000/yolo", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+
+            this.props.navigate("/showimages", {
+                state: {
+                    imgSrc,
+                    yoloResult: data
+                }
+            });
+
+        } catch (error) {
+            alert("Failed to process the image. Try again.");
+        } finally {
+            this.setState({ loading: false });
+        }
+    };
 
     toggleLive = () => {
         this.setState({
@@ -47,10 +85,18 @@ class UserInput extends Component {
     };
 
     render() {
-        const { live, upload, imgSrc } = this.state;
+        const { live, upload, imgSrc, loading } = this.state;
 
         return (
             <div className="UserInput-container">
+                
+                {loading && (
+                    <div className="loading-overlay">
+                        <SpinnerCircular size={90} thickness={120} speed={120} color="#4fc3f7" secondaryColor="#ffffff" />
+                        <p className="loading-text">Processing...</p>
+                    </div>
+                )}
+
                 <form className="form-container">
 
                     <div className="input-row">
@@ -112,7 +158,6 @@ class UserInput extends Component {
                         {upload && (
                             <div className="input-group full-width">
                                 <label>Upload Image</label>
-
                                 <label className="upload">
                                     <MonitorUp size={40} />
                                     <input
@@ -139,6 +184,7 @@ class UserInput extends Component {
                             Upload
                         </button>
                     </div>
+
                     <button type="button" className="custom-next-button" onClick={this.handleNextButton}>
                         <span className="btn-text">Next</span>
                         <span className="btn-file"><StepForward /></span>

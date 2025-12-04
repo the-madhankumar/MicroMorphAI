@@ -1,10 +1,10 @@
 import { Component } from "react";
-import { getAllSensorData, addSensorData } from "../FirebaseService/firebaseService.js";
+import { getAllSensorData } from "../FirebaseService/firebaseService.js";
+import { getAllInferenceImages, getClassCounts } from "../FirebaseService/firebaseService.js";
 
 import SimpleCharts from "./BarChart";
 import CompositionExample from "./GaugeChart";
-import showImagesList from "../../Data/showImage.js";
-
+import { withRouter } from '../../withRouter';
 
 import BasicLineChart from "./LineChart/index.js";
 import { ArrowBigRightDash, ArrowBigLeftDash } from "lucide-react";
@@ -27,7 +27,7 @@ L.Icon.Default.mergeOptions({
 class ShowImages extends Component {
     state = {
         showImageData: [],
-        carouselIndex: 1,
+        carouselIndex: 0,
         currentImageSpec: null,
         sensorData: null,
         sensorDataPh: [],
@@ -35,12 +35,17 @@ class ShowImages extends Component {
         sensorDataTemperature: [],
         sensorDataTurbidity: [],
         sensorDataTime: [],
+        mainImage: null,
 
         showDataPh: true,
         showDatatds: false,
         showDataTemperature: false,
         showDataTurbidity: false,
         showDataTime: false,
+
+        yoloClassKeys: [],
+        yoloClassValues: [],
+        yoloClassCountMap: null
     };
 
     // async componentDidMount() {
@@ -69,30 +74,48 @@ class ShowImages extends Component {
 
 
     async componentDidMount() {
+        const imgSrc = this.props.location?.state?.imgSrc || null;
+
+        // Load YOLO results from Firebase
+        try {
+            const inferenceData = await getAllInferenceImages();
+            const classCounts = await getClassCounts();
+
+            const inferenceArray = Object.values(inferenceData || {});
+
+            const classKeys = Object.keys(classCounts || {});
+            const classValues = Object.values(classCounts || {});
+
+            this.setState({
+                mainImage: imgSrc,
+                showImageData: inferenceArray,
+                currentImageSpec: inferenceArray.length > 0 ? inferenceArray[0] : null,
+                yoloClassKeys: classKeys,
+                yoloClassValues: classValues,
+                yoloClassCountMap: classCounts
+            });
+
+        } catch (err) {
+            console.error("Error fetching YOLO results from Firebase:", err);
+        }
+
+        // Fetch sensor data (existing code)
         const allSensorData = await getAllSensorData();
         const arrayData = Object.values(allSensorData || {});
-
-        const phData = arrayData.map(item => item.ph);
-        const tdsData = arrayData.map(item => item.tds);
-        const tempData = arrayData.map(item => item.temperature);
-        const turbidityData = arrayData.map(item => item.turbidity);
-        const timeData = arrayData.map(item => item.timestamp);
-
         this.setState({
-            showImageData: showImagesList,
-            currentImageSpec: showImagesList[1] || null,
             sensorData: arrayData,
-            sensorDataPh: phData,
-            sensorDatatds: tdsData,
-            sensorDataTemperature: tempData,
-            sensorDataTurbidity: turbidityData,
-            sensorDataTime: timeData
+            sensorDataPh: arrayData.map(item => item.ph),
+            sensorDatatds: arrayData.map(item => item.tds),
+            sensorDataTemperature: arrayData.map(item => item.temperature),
+            sensorDataTurbidity: arrayData.map(item => item.turbidity),
+            sensorDataTime: arrayData.map(item => item.timestamp)
         });
     }
 
+
     decrementCarouselIndex = () => {
         const { carouselIndex, showImageData } = this.state;
-        const newIndex = Math.max(carouselIndex - 1, 1);
+        const newIndex = Math.max(carouselIndex - 1, 0);
         this.setState({
             carouselIndex: newIndex,
             currentImageSpec: showImageData[newIndex]
@@ -132,10 +155,11 @@ class ShowImages extends Component {
     };
 
     render() {
-        const { showImageData, carouselIndex, currentImageSpec, sensorData } = this.state;
+        const { showImageData, carouselIndex, currentImageSpec, sensorData, mainImage, yoloClassKeys, yoloClassValues } = this.state;
 
-        const mainImage = showImageData[0];
         const currentImage = showImageData[carouselIndex];
+        console.log("currentImage : ", currentImage)
+        console.log("Main Image : ", mainImage)
 
         const lastReading = sensorData && sensorData.length ? sensorData[sensorData.length - 1] : {};
 
@@ -144,15 +168,18 @@ class ShowImages extends Component {
                 <div className="showimages-main-image-container">
                     {mainImage && (
                         <img
-                            src={mainImage.image}
-                            alt={mainImage.class}
+                            src={mainImage}
+                            alt="main-image"
                             className="show-main-image"
                         />
                     )}
                     <div className="classification-stats">
                         <h1>Classification Stats</h1>
                         <div className="main-image-specs">
-                            <SimpleCharts />
+                            <SimpleCharts
+                                xdataClass={yoloClassKeys || []}
+                                ydataCount={yoloClassValues || []}
+                            />
                         </div>
                     </div>
                 </div>
@@ -161,22 +188,25 @@ class ShowImages extends Component {
                     <div className="section-1">
                         <div className="carousel-complete-view">
                             <div className="carousel-wrapper">
+                                {/* Left Arrow */}
                                 <button
                                     onClick={this.decrementCarouselIndex}
                                     className="carousel-arrow left"
-                                    disabled={carouselIndex === 1}
+                                    disabled={carouselIndex === 0} // 0-indexed
                                 >
                                     <ArrowBigLeftDash size={50} />
                                 </button>
 
+                                {/* Current Image */}
                                 {currentImage && (
                                     <img
-                                        src={currentImage.image}
-                                        alt={currentImage.class}
+                                        src={`data:image/png;base64,${currentImage.crop_image_url}`} // base64 support
+                                        alt={currentImage.final_class || "image"}
                                         className="carousel-image"
                                     />
                                 )}
 
+                                {/* Right Arrow */}
                                 <button
                                     onClick={this.incrementCarouselIndex}
                                     className="carousel-arrow right"
@@ -186,92 +216,117 @@ class ShowImages extends Component {
                                 </button>
                             </div>
 
+                            {/* Current Image Classification */}
                             <div className="current-image-classification">
                                 <h1>Current Image Specification</h1>
-                                {currentImageSpec && (
+
+                                {currentImageSpec ? (
                                     <div className="image-spec-details">
-                                        <p className="image-class">{currentImageSpec.class}</p>
-                                        <p className="image-confidence">
-                                            Confidence: {currentImageSpec.confidence || "N/A"}
-                                        </p>
-                                        <CompositionExample confidence={currentImageSpec.confidence} />
+                                        {/* Final Class */}
+                                        <div className="image-final-class">
+                                            <strong>Final Class:</strong> {currentImageSpec.final_class || "N/A"}
+                                        </div>
+
+                                        {/* Model Outputs */}
+                                        <div className="image-model-outputs">
+                                            <strong>Model Outputs:</strong>
+                                            {currentImageSpec.model_outputs
+                                                ? Object.entries(currentImageSpec.model_outputs).map(([model, label]) => (
+                                                    <p key={model}>
+                                                        {model}: {label || "N/A"} (
+                                                        {currentImageSpec.confidence?.[model] != null
+                                                            ? `${(currentImageSpec.confidence[model] * 100).toFixed(1)}%`
+                                                            : "N/A"}
+                                                        )
+                                                    </p>
+                                                ))
+                                                : <p>No model outputs</p>}
+                                        </div>
+
+                                        {/* Confidence Gauge */}
+                                        <CompositionExample
+                                            confidence={currentImageSpec.confidence?.yolo || 0}
+                                        />
                                     </div>
+                                ) : (
+                                    <div>No Image Selected</div>
                                 )}
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div className="section-2">
-                        <div className="water-analysis">
-                            <div className="water-metric">pH: {lastReading.ph || "-"}</div>
-                            <div className="water-metric">Temperature: {lastReading.temperature || "-"}</div>
-                            <div className="water-metric">Turbidity: {lastReading.turbidity || "-"}</div>
-                            <div className="water-metric">TDS: {lastReading.tds || "-"}</div>
-                            <div className="water-metric">
-                                GPS Location: {lastReading.latitude && lastReading.longitude
-                                    ? `${lastReading.latitude}, ${lastReading.longitude}`
-                                    : "-"}
 
-                                {lastReading.latitude && lastReading.longitude && (
-                                    <MapContainer
-                                        center={[lastReading.latitude, lastReading.longitude]}
-                                        zoom={13}
-                                        scrollWheelZoom={false}
-                                        style={{ height: '400px', width: '100%' }}
-                                    >
-                                        <TileLayer
-                                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                            attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-                                        />
-                                        <Marker position={[lastReading.latitude, lastReading.longitude]} />
-                                    </MapContainer>
-                                )}
+                <div className="section-2">
+                    <div className="water-analysis">
+                        <div className="water-metric">pH: {lastReading.ph || "-"}</div>
+                        <div className="water-metric">Temperature: {lastReading.temperature || "-"}</div>
+                        <div className="water-metric">Turbidity: {lastReading.turbidity || "-"}</div>
+                        <div className="water-metric">TDS: {lastReading.tds || "-"}</div>
+                        <div className="water-metric">
+                            GPS Location: {lastReading.latitude && lastReading.longitude
+                                ? `${lastReading.latitude}, ${lastReading.longitude}`
+                                : "-"}
+
+                            {lastReading.latitude && lastReading.longitude && (
+                                <MapContainer
+                                    center={[lastReading.latitude, lastReading.longitude]}
+                                    zoom={13}
+                                    scrollWheelZoom={false}
+                                    style={{ height: '400px', width: '100%' }}
+                                >
+                                    <TileLayer
+                                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                        attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+                                    />
+                                    <Marker position={[lastReading.latitude, lastReading.longitude]} />
+                                </MapContainer>
+                            )}
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="water-header water-header-graph">Water quality trend gap</p>
+
+                        <div className="selectAnalysis">
+                            <div
+                                className={`select-box ${this.state.showDataPh ? "active" : ""}`}
+                                onClick={() => this.handleShowAnalysis(1)}
+                            >
+                                pH
+                            </div>
+                            <div
+                                className={`select-box ${this.state.showDataTemperature ? "active" : ""}`}
+                                onClick={() => this.handleShowAnalysis(2)}
+                            >
+                                Temperature
+                            </div>
+                            <div
+                                className={`select-box ${this.state.showDataTurbidity ? "active" : ""}`}
+                                onClick={() => this.handleShowAnalysis(3)}
+                            >
+                                Turbidity
+                            </div>
+                            <div
+                                className={`select-box ${this.state.showDatatds ? "active" : ""}`}
+                                onClick={() => this.handleShowAnalysis(4)}
+                            >
+                                TDS
                             </div>
                         </div>
 
-                        <div>
-                            <p className="water-header water-header-graph">Water quality trend gap</p>
 
-                            <div className="selectAnalysis">
-                                <div
-                                    className={`select-box ${this.state.showDataPh ? "active" : ""}`}
-                                    onClick={() => this.handleShowAnalysis(1)}
-                                >
-                                    pH
-                                </div>
-                                <div
-                                    className={`select-box ${this.state.showDataTemperature ? "active" : ""}`}
-                                    onClick={() => this.handleShowAnalysis(2)}
-                                >
-                                    Temperature
-                                </div>
-                                <div
-                                    className={`select-box ${this.state.showDataTurbidity ? "active" : ""}`}
-                                    onClick={() => this.handleShowAnalysis(3)}
-                                >
-                                    Turbidity
-                                </div>
-                                <div
-                                    className={`select-box ${this.state.showDatatds ? "active" : ""}`}
-                                    onClick={() => this.handleShowAnalysis(4)}
-                                >
-                                    TDS
-                                </div>
-                            </div>
+                        <BasicLineChart
+                            xdata={this.state.sensorDataTime}
+                            ydata={
+                                this.state.showDataPh ? this.state.sensorDataPh :
+                                    this.state.showDataTemperature ? this.state.sensorDataTemperature :
+                                        this.state.showDataTurbidity ? this.state.sensorDataTurbidity :
+                                            this.state.showDatatds ? this.state.sensorDatatds :
+                                                []
+                            }
+                        />
 
-
-                            <BasicLineChart
-                                xdata={this.state.sensorDataTime}
-                                ydata={
-                                    this.state.showDataPh ? this.state.sensorDataPh :
-                                        this.state.showDataTemperature ? this.state.sensorDataTemperature :
-                                            this.state.showDataTurbidity ? this.state.sensorDataTurbidity :
-                                                this.state.showDatatds ? this.state.sensorDatatds :
-                                                    []
-                                }
-                            />
-
-                        </div>
                     </div>
                 </div>
             </div>
@@ -279,4 +334,4 @@ class ShowImages extends Component {
     }
 }
 
-export default ShowImages;
+export default withRouter(ShowImages);

@@ -1,12 +1,12 @@
 import { BarChart } from '@mui/x-charts/BarChart';
 
-export default function SimpleCharts() {
+export default function SimpleCharts({xdataClass, ydataCount}) {
   return (
     <BarChart
       xAxis={[
         {
           id: "barCategories",
-          data: ["bar A", "bar B", "bar C", "bar D"],
+          data: xdataClass,
           labelStyle: { fill: "#FFFFFF" }, 
           tickLabelStyle: { fill: "#FFFFFF" }
         }
@@ -18,7 +18,7 @@ export default function SimpleCharts() {
       ]}
       series={[
         {
-          data: [2, 5, 3, 10],
+          data: ydataCount,
           color: "#006BD6"
         }
       ]}
